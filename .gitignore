@@ -1,0 +1,16 @@
+# OS
+.DS_Store
+
+# Local tooling
+.claude/
+.vercel/
+
+# Research / personal notes (not part of the app)
+*.md
+
+# Unused / legacy assets (only clapperboard4.riv is referenced by index.html)
+clapperboard.png
+clapperboard.pen
+clapperboard.riv
+clapperboard2.riv
+clapperboard3.riv

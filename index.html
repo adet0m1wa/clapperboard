@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Moonlight — footer preview (v7.1)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* Strong custom easing curves — punchier than CSS defaults */
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+    /* Hover animation params — enter 330ms / exit 310ms, drawer-ish easing */
+    --left-enter-duration: 330ms;
+    --left-enter-easing: cubic-bezier(0.32, 0.72, 0, 1);
+    --left-exit-duration: 310ms;
+    --left-exit-easing: cubic-bezier(0.32, 0.72, 0, 1);
+    --middle-enter-duration: 330ms;
+    --middle-enter-easing: cubic-bezier(0.32, 0.72, 0, 1);
+    --middle-exit-duration: 310ms;
+    --middle-exit-easing: cubic-bezier(0.32, 0.72, 0, 1);
+    --right-enter-duration: 330ms;
+    --right-enter-easing: cubic-bezier(0.32, 0.72, 0, 1);
+    --right-exit-duration: 310ms;
+    --right-exit-easing: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /* Stagger entrance — runs on page load and on link-click replay */
+  @keyframes footerFadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0B0B0E;
+    color: #F5F5F4;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    line-height: 1.5;
+  }
+
+  footer {
+    position: relative;
+    background:
+      radial-gradient(900px 500px at 88% 20%, rgba(239, 68, 68, 0.10), transparent 60%),
+      radial-gradient(700px 400px at 8% 90%, rgba(120, 53, 15, 0.10), transparent 65%),
+      #0B0B0E;
+    overflow: hidden;
+    /* Private stacking context — keeps the rays' blend-mode contained */
+    isolation: isolate;
+  }
+  footer::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 40%, black 30%, transparent 85%);
+    -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 40%, black 30%, transparent 85%);
+    pointer-events: none;
+  }
+
+  /* ===== Volumetric god rays — additive ambient atmosphere =====
+     Layered behind content. `screen` blend on near-black is effectively
+     additive light. Two gradient layers: a wide warm haze pool + a tilted
+     directional shaft, both softened by a 48px blur. Motion is opt-in via
+     prefers-reduced-motion: no-preference so the static frame is the safe
+     default. */
+  .moonlight-rays {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    background:
+      /* warm spotlight pool anchored at the top-right corner */
+      radial-gradient(
+        ellipse 100% 120% at 100% 0%,
+        rgba(255, 232, 200, 0.14) 0%,
+        rgba(255, 220, 180, 0.07) 30%,
+        transparent 70%
+      ),
+      /* directional shaft emanating from top-right toward bottom-left
+         — peak brightness sits at 0% (the top-right edge) and fades out */
+      linear-gradient(
+        225deg,
+        rgba(255, 245, 225, 0.12) 0%,
+        rgba(255, 240, 215, 0.08) 15%,
+        rgba(255, 235, 200, 0.04) 35%,
+        transparent 60%
+      );
+    filter: blur(48px);
+    /* Promote to its own GPU layer so animation doesn't cause re-rasterize */
+    transform: translateZ(0);
+  }
+
+  /* Motion is opt-in: reduced-motion users get the static frame */
+  @media (prefers-reduced-motion: no-preference) {
+    .moonlight-rays {
+      animation:
+        moonlight-drift   47s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite,
+        moonlight-breathe 13s ease-in-out                          infinite;
+      will-change: transform, opacity;
+    }
+  }
+
+  /* Drift + tilt combined into one keyframe (separate transform animations
+     would override each other). 47s and 13s are coprime → the combined
+     motion never visibly repeats. */
+  @keyframes moonlight-drift {
+    0%   { transform: translate3d(-3%, 0, 0) rotate(-0.6deg); }
+    50%  { transform: translate3d( 3%, 0, 0) rotate( 0.6deg); }
+    100% { transform: translate3d(-3%, 0, 0) rotate(-0.6deg); }
+  }
+  @keyframes moonlight-breathe {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.85; }
+  }
+
+  /* ----- top: clapperboard + nav columns, stacked & centered ----- */
+  .footer-inner {
+    position: relative;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 64px 64px 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 56px;
+  }
+
+  /* LEFT */
+  .footer-cta {
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    min-width: 0;
+  }
+  .footer-headline {
+    font-size: 44px;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    font-weight: 700;
+    margin: 0 0 16px;
+    color: #FAFAF9;
+    text-wrap: balance;
+  }
+  .footer-headline .dim { color: #A1A1AA; }
+  .footer-pitch {
+    font-size: 16px;
+    line-height: 1.65;
+    color: #A1A1AA;
+    margin: 0;
+    max-width: 440px;
+    text-wrap: pretty;
+  }
+  .clapper-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 325px;
+  }
+  .clapper-wrap::after {
+    content: "";
+    position: absolute;
+    inset: -14% -12% -8% -12%;
+    background: radial-gradient(closest-side, rgba(239, 68, 68, 0.22), transparent 70%);
+    z-index: 0;
+    pointer-events: none;
+  }
+  .clapper-canvas {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    /* Rive artboard is 410 × 573 — preserve that aspect when scaling */
+    aspect-ratio: 410 / 573;
+    filter: drop-shadow(0 24px 50px rgba(0, 0, 0, 0.6));
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  /* nav grid — columns hug content; max-width caps the gap at ~100px between cols.
+     Below the cap, `space-between` lets gaps shrink naturally on narrower viewports. */
+  .footer-nav {
+    width: 100%;
+    max-width: 550px;
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    justify-content: space-between;
+    gap: 40px 24px;
+  }
+  .footer-col {
+    min-width: 0;
+    text-align: center;
+  }
+  /* Outer columns frame the layout: left col → left-aligned, right col → right-aligned */
+  .footer-nav .footer-col:nth-child(3n+1) { text-align: left;  }
+  .footer-nav .footer-col:nth-child(3n)   { text-align: right; }
+  .footer-col h4 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #FAFAF9;
+    font-weight: 600;
+    margin: 0 0 18px;
+  }
+  .footer-col ul { list-style: none; padding: 0; margin: 0; }
+  .footer-col li { margin-bottom: 4px; }
+  .footer-col a {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    color: #A1A1AA;
+    font-size: 14px;
+    line-height: 1.4;
+    text-decoration: none;
+    padding: 6px 0;
+    transition-property: color, transform;
+    transition-duration: 150ms;
+    transition-timing-function: var(--ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .footer-col a:hover { color: #FAFAF9; }
+  }
+  .footer-col a:active { transform: scale(0.97); }
+
+  /* ===== Hover underline — directional, never reverses =====
+     LEFT col   : line sweeps L→R on enter and continues L→R on exit (slides off right)
+     RIGHT col  : mirror — sweeps R→L on enter, continues R→L on exit (slides off left)
+     MIDDLE col : line grows from center outward on enter, splits at center and
+                  each half continues outward on exit (left half exits left, right half exits right)
+     Triggered by [data-hover="enter"|"exit"] set by JS on mouseenter/leave. */
+
+  .footer-nav a::before {
+    content: "";
+    position: absolute;
+    bottom: 2px;
+    height: 1px;
+    background: currentColor;
+    pointer-events: none;
+  }
+
+  /* LEFT column — ::before is the full underline, clipped from the right edge */
+  .footer-nav .footer-col:nth-child(3n+1) a::before {
+    left: 0;
+    width: 100%;
+    clip-path: inset(0 100% 0 0);
+  }
+  .footer-nav .footer-col:nth-child(3n+1) a[data-hover="enter"]::before {
+    animation: hoverLeftEnter var(--left-enter-duration) var(--left-enter-easing) forwards;
+  }
+  .footer-nav .footer-col:nth-child(3n+1) a[data-hover="exit"]::before {
+    animation: hoverLeftExit var(--left-exit-duration) var(--left-exit-easing) forwards;
+  }
+
+  /* RIGHT column — ::before is the full underline, clipped from the left edge */
+  .footer-nav .footer-col:nth-child(3n) a::before {
+    left: 0;
+    width: 100%;
+    clip-path: inset(0 0 0 100%);
+  }
+  .footer-nav .footer-col:nth-child(3n) a[data-hover="enter"]::before {
+    animation: hoverRightEnter var(--right-enter-duration) var(--right-enter-easing) forwards;
+  }
+  .footer-nav .footer-col:nth-child(3n) a[data-hover="exit"]::before {
+    animation: hoverRightExit var(--right-exit-duration) var(--right-exit-easing) forwards;
+  }
+
+  /* MIDDLE column — ::before is left half, ::after is right half, each grows
+     outward from the center on enter, then continues outward on exit. */
+  .footer-nav .footer-col:nth-child(3n+2) a::before {
+    left: 0;
+    width: 50%;
+    transform: scaleX(0);
+    transform-origin: right;
+    clip-path: none;
+  }
+  .footer-nav .footer-col:nth-child(3n+2) a::after {
+    content: "";
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    width: 50%;
+    height: 1px;
+    background: currentColor;
+    pointer-events: none;
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  .footer-nav .footer-col:nth-child(3n+2) a[data-hover="enter"]::before,
+  .footer-nav .footer-col:nth-child(3n+2) a[data-hover="enter"]::after {
+    animation: hoverMiddleEnter var(--middle-enter-duration) var(--middle-enter-easing) forwards;
+  }
+  /* Exit: flip transform-origin to the outer edge so the line shrinks back to
+     nothing AT the outer edge — visually erases from center outward. */
+  .footer-nav .footer-col:nth-child(3n+2) a[data-hover="exit"]::before {
+    transform-origin: left;
+    animation: hoverMiddleExit var(--middle-exit-duration) var(--middle-exit-easing) forwards;
+  }
+  .footer-nav .footer-col:nth-child(3n+2) a[data-hover="exit"]::after {
+    transform-origin: right;
+    animation: hoverMiddleExit var(--middle-exit-duration) var(--middle-exit-easing) forwards;
+  }
+
+  @keyframes hoverLeftEnter {
+    from { clip-path: inset(0 100% 0 0); }
+    to   { clip-path: inset(0 0    0 0); }
+  }
+  @keyframes hoverLeftExit {
+    from { clip-path: inset(0 0    0 0); }
+    to   { clip-path: inset(0 0    0 100%); }
+  }
+  @keyframes hoverRightEnter {
+    from { clip-path: inset(0 0    0 100%); }
+    to   { clip-path: inset(0 0    0 0); }
+  }
+  @keyframes hoverRightExit {
+    from { clip-path: inset(0 0    0 0); }
+    to   { clip-path: inset(0 100% 0 0); }
+  }
+  @keyframes hoverMiddleEnter {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+  }
+  /* Single shared exit — direction of erasure is controlled by transform-origin
+     swap on the pseudo (set in the CSS rules above), not by the keyframe. */
+  @keyframes hoverMiddleExit {
+    from { transform: scaleX(1); }
+    to   { transform: scaleX(0); }
+  }
+
+  /* ----- bottom: meta strip, stacked & centered ----- */
+  .footer-meta {
+    position: relative;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 64px 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+    color: #71717A;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+  .footer-meta .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: nowrap;
+  }
+  .footer-meta .logo {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: #EF4444;
+    white-space: nowrap;
+  }
+  .footer-meta .copyright {
+    white-space: nowrap;
+  }
+  .footer-meta .legal { display: flex; gap: 22px; }
+  .footer-meta .legal a {
+    color: #71717A;
+    text-decoration: none;
+    padding: 4px 0;
+    transition-property: color;
+    transition-duration: 150ms;
+    transition-timing-function: var(--ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .footer-meta .legal a:hover { color: #E7E5E4; }
+  }
+  .footer-meta .legal a:active { transform: scale(0.97); }
+
+  /* ----- stagger entrance: clapperboard area → nav cols → meta strip ----- */
+  .footer-cta > *,
+  .footer-nav .footer-col,
+  .footer-meta {
+    animation: footerFadeUp 400ms var(--ease-out) backwards;
+  }
+  .footer-cta > *:nth-child(1) { animation-delay: 0ms; }
+  .footer-cta > *:nth-child(2) { animation-delay: 60ms; }
+  .footer-cta > *:nth-child(3) { animation-delay: 120ms; }
+  .footer-nav .footer-col:nth-child(1) { animation-delay: 180ms; }
+  .footer-nav .footer-col:nth-child(2) { animation-delay: 240ms; }
+  .footer-nav .footer-col:nth-child(3) { animation-delay: 300ms; }
+  .footer-nav .footer-col:nth-child(4) { animation-delay: 360ms; }
+  .footer-nav .footer-col:nth-child(5) { animation-delay: 420ms; }
+  .footer-nav .footer-col:nth-child(6) { animation-delay: 480ms; }
+  .footer-meta { animation-delay: 540ms; }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 960px) {
+    .footer-inner { padding: 48px 24px 28px; gap: 48px; }
+    .footer-headline { font-size: 36px; }
+    .footer-meta { padding: 20px 24px 32px; }
+  }
+  /* Narrow (~phone): nav collapses to 2×3, left-aligned. */
+  @media (max-width: 450px) {
+    .footer-nav {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      justify-content: stretch;
+      gap: 32px 20px;
+    }
+    .footer-nav .footer-col,
+    .footer-nav .footer-col:nth-child(3n+1),
+    .footer-nav .footer-col:nth-child(3n) { text-align: left; }
+    .footer-meta .brand { flex-wrap: wrap; justify-content: center; }
+    .footer-meta .copyright { white-space: normal; }
+
+    /* In 2-col mode the middle-column hover setup no longer maps to anything
+       visual. Strip out the half-line ::after, reset ::before to a full-width
+       underline, and reroute the animations by visual position:
+         odd  children (1,3,5 → visual LEFT col)  → use the L→R animation
+         even children (2,4,6 → visual RIGHT col) → use the R→L animation
+       so inner edges face each other and animations mirror. */
+    .footer-nav .footer-col a::after { content: none; }
+    .footer-nav .footer-col a::before {
+      left: 0;
+      width: 100%;
+      transform: none;
+      transform-origin: initial;
+    }
+    .footer-nav .footer-col:nth-child(odd) a::before {
+      clip-path: inset(0 100% 0 0);
+    }
+    .footer-nav .footer-col:nth-child(odd) a[data-hover="enter"]::before {
+      animation: hoverLeftEnter var(--left-enter-duration) var(--left-enter-easing) forwards;
+    }
+    .footer-nav .footer-col:nth-child(odd) a[data-hover="exit"]::before {
+      animation: hoverLeftExit var(--left-exit-duration) var(--left-exit-easing) forwards;
+    }
+    .footer-nav .footer-col:nth-child(even) a::before {
+      clip-path: inset(0 0 0 100%);
+    }
+    .footer-nav .footer-col:nth-child(even) a[data-hover="enter"]::before {
+      animation: hoverRightEnter var(--right-enter-duration) var(--right-enter-easing) forwards;
+    }
+    .footer-nav .footer-col:nth-child(even) a[data-hover="exit"]::before {
+      animation: hoverRightExit var(--right-exit-duration) var(--right-exit-easing) forwards;
+    }
+  }
+
+  /* Respect motion preferences — keep color transitions, drop the press-scale,
+     entrance stagger, and the hover underline animations. */
+  @media (prefers-reduced-motion: reduce) {
+    .footer-col a:active,
+    .footer-meta .legal a:active { transform: none; }
+    .footer-cta > *,
+    .footer-nav .footer-col,
+    .footer-meta { animation: none; }
+    .footer-nav a::before,
+    .footer-nav a::after { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<footer>
+  <div class="moonlight-rays" aria-hidden="true"></div>
+  <div class="footer-inner">
+    <!-- LEFT: pitch + clapperboard -->
+    <div class="footer-cta">
+      <h2 class="footer-headline">Lights. <span class="dim">Camera.</span></h2>
+      <p class="footer-pitch">
+        Sign up as a producer, find your crew, and get your project moving.
+        We've handled the slate — all that's left is your cue.
+      </p>
+      <div class="clapper-wrap">
+        <canvas class="clapper-canvas" role="img"
+                aria-label="Moonlight clapperboard — Join us as a Producer today, and ACTION"></canvas>
+      </div>
+    </div>
+
+    <!-- RIGHT: 6 nav columns in a 3×2 grid -->
+    <div class="footer-nav">
+      <div class="footer-col">
+        <h4>Platform</h4>
+        <ul>
+          <li><a href="#">How it works</a></li>
+          <li><a href="#">For producers</a></li>
+          <li><a href="#">For studios</a></li>
+          <li><a href="#">For crew</a></li>
+          <li><a href="#">Pricing</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Hiring</h4>
+        <ul>
+          <li><a href="#">Browse producers</a></li>
+          <li><a href="#">Verified credits</a></li>
+          <li><a href="#">Project briefs</a></li>
+          <li><a href="#">Casting tools</a></li>
+          <li><a href="#">Enterprise plans</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <ul>
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Help center</a></li>
+          <li><a href="#">Community</a></li>
+          <li><a href="#">Reviews</a></li>
+          <li><a href="#">Status</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#">About</a></li>
+          <li><a href="#">Careers</a></li>
+          <li><a href="#">Press</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Compliance</h4>
+        <ul>
+          <li><a href="#">Union signatories</a></li>
+          <li><a href="#">E&amp;O insurance</a></li>
+          <li><a href="#">Tax incentives</a></li>
+          <li><a href="#">Code of conduct</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Social</h4>
+        <ul>
+          <li><a href="#">Instagram</a></li>
+          <li><a href="#">X (Twitter)</a></li>
+          <li><a href="#">YouTube</a></li>
+          <li><a href="#">LinkedIn</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full-width meta strip: brand far left, legal far right -->
+  <div class="footer-meta">
+    <div class="brand">
+      <span class="logo">MOONLIGHT</span>
+      <span class="copyright">© 2026 Moonlight Inc. All rights reserved.</span>
+    </div>
+    <div class="legal">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Cookies</a>
+    </div>
+  </div>
+</footer>
+
+<!-- Rive web runtime (Canvas renderer) — pulls in the lightweight, no-WebGL build -->
+<script src="https://unpkg.com/@rive-app/canvas@2"></script>
+<script>
+  // Boot the clapperboard Rive animation. The .riv file owns its own pointer
+  // listeners on the artboard, so clicking the canvas fires `mainTrigger` and
+  // `pressed` internally — no JS event wiring needed for the click → close → open
+  // sequence. We just instantiate, autoplay the state machine, and auto-bind the
+  // default ViewModel instance.
+  (function() {
+    const canvas = document.querySelector('.clapper-canvas');
+    if (!canvas || typeof rive === 'undefined') return;
+
+    const r = new rive.Rive({
+      src: 'clapperboard4.riv',
+      canvas: canvas,
+      artboard: 'clapperboard',
+      stateMachines: 'footer with nested state machine',
+      autoplay: true,
+      autoBind: true, // binds the default `Instance` of the clapperboard ViewModel
+      onLoad: () => {
+        // Sync the canvas's CSS aspect-ratio to the loaded artboard's actual
+        // bounds — so a re-saved .riv with a wider/taller artboard adapts on
+        // its own without us touching the CSS each time.
+        try {
+          const b = r.bounds;
+          if (b) {
+            const w = b.maxX - b.minX;
+            const h = b.maxY - b.minY;
+            if (w > 0 && h > 0) canvas.style.aspectRatio = w + ' / ' + h;
+          }
+        } catch (_) { /* keep CSS fallback */ }
+        // Match canvas drawing buffer to its CSS size × devicePixelRatio for sharpness
+        r.resizeDrawingSurfaceToCanvas();
+      },
+    });
+
+    // Keep the drawing buffer in sync when the viewport changes
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => r.resizeDrawingSurfaceToCanvas(), 100);
+    });
+  })();
+</script>
+
+<script>
+  // Replay the stagger entrance when any footer link is clicked.
+  (function() {
+    const elements = document.querySelectorAll(
+      '.footer-cta > *, .footer-nav .footer-col, .footer-meta'
+    );
+    const links = document.querySelectorAll('footer a');
+
+    function replay() {
+      elements.forEach((el) => { el.style.animation = 'none'; });
+      // Force the browser to commit the "no animation" state before re-enabling.
+      void document.body.offsetHeight;
+      elements.forEach((el) => { el.style.animation = ''; });
+    }
+
+    links.forEach((link) => {
+      link.addEventListener('click', (e) => {
+        // Placeholder hrefs — prevent scroll-to-top from the hash.
+        if (link.getAttribute('href') === '#') e.preventDefault();
+        replay();
+      });
+    });
+  })();
+
+  // Directional hover underline — toggles [data-hover] so CSS animations fire.
+  (function() {
+    // Only on hover-capable devices — touch fires hover on tap, which would misfire.
+    if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+
+    const navLinks = document.querySelectorAll('.footer-nav a');
+    navLinks.forEach((link) => {
+      link.addEventListener('mouseenter', () => {
+        link.dataset.hover = 'enter';
+      });
+      link.addEventListener('mouseleave', () => {
+        if (link.dataset.hover === 'enter') {
+          link.dataset.hover = 'exit';
+        }
+      });
+      // After the exit animation finishes, clear the state so the pseudo
+      // returns to its hidden default position.
+      link.addEventListener('animationend', (e) => {
+        if (e.animationName.toLowerCase().includes('exit') && link.dataset.hover === 'exit') {
+          delete link.dataset.hover;
+        }
+      });
+    });
+  })();
+</script>
+
+</body>
+</html>
