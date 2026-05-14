@@ -193,20 +193,22 @@
   }
   /* Tap overlay — only used on touch devices. On desktop the canvas keeps
      its own pointer events so Rive's hover/press listeners run normally.
-     On touch, the canvas is pointer-events:none and this button absorbs
-     taps, letting the browser scroll freely while still firing the clap. */
+     On touch, the canvas is pointer-events:none and this overlay absorbs
+     taps, letting the browser scroll freely while still firing the clap.
+     Using a <div role="button"> instead of <button>: iOS Safari has a
+     long-standing quirk where <button> elements don't reliably honor
+     `touch-action: pan-y`, blocking vertical scroll over the element. */
   .clapper-tap {
     display: none;
     position: absolute;
     inset: 0;
     z-index: 2;
-    background: transparent;
-    border: 0;
-    padding: 0;
-    margin: 0;
     cursor: pointer;
     touch-action: pan-y pinch-zoom;
     -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
   @media (hover: none) and (pointer: coarse) {
     .clapper-canvas { pointer-events: none; }
@@ -509,7 +511,7 @@
       <div class="clapper-wrap">
         <canvas class="clapper-canvas" role="img"
                 aria-label="Moonlight clapperboard — Join us as a Producer today, and ACTION"></canvas>
-        <button type="button" class="clapper-tap" aria-label="Play clapperboard animation"></button>
+        <div class="clapper-tap" role="button" tabindex="0" aria-label="Play clapperboard animation"></div>
       </div>
     </div>
 
@@ -627,11 +629,11 @@
 
     // Touch-device tap overlay → fire the state-machine trigger manually.
     // On mobile, the canvas is pointer-events:none so vertical scroll works
-    // cleanly. The overlay button absorbs taps; we forward them to the
-    // first SMITrigger we find in the state machine.
+    // cleanly. The overlay absorbs taps; we forward them to the first
+    // SMITrigger we find in the state machine.
     const tapBtn = document.querySelector('.clapper-tap');
     if (tapBtn) {
-      tapBtn.addEventListener('click', () => {
+      function fireClap() {
         try {
           const inputs = r.stateMachineInputs('footer with nested state machine');
           if (!inputs) return;
@@ -644,6 +646,55 @@
           if (!t) t = inputs.find(i => typeof i.fire === 'function');
           if (t) t.fire();
         } catch (_) { /* state machine not ready yet */ }
+      }
+
+      // Track touch start to distinguish a tap from a vertical swipe. If the
+      // finger moves more than TAP_SLOP pixels before lift, it's a scroll —
+      // don't fire. This is a belt-and-braces guard on top of touch-action.
+      const TAP_SLOP = 10;
+      let touchStart = null;
+      let touchMoved = false;
+      // After a touchend, the browser synthesizes a click. Swallow it so we
+      // don't double-fire on top of the touchend path.
+      let suppressNextClick = false;
+
+      tapBtn.addEventListener('touchstart', (e) => {
+        const t = e.touches[0];
+        touchStart = { x: t.clientX, y: t.clientY };
+        touchMoved = false;
+      }, { passive: true });
+
+      tapBtn.addEventListener('touchmove', (e) => {
+        if (!touchStart) return;
+        const t = e.touches[0];
+        if (Math.abs(t.clientX - touchStart.x) > TAP_SLOP ||
+            Math.abs(t.clientY - touchStart.y) > TAP_SLOP) {
+          touchMoved = true;
+        }
+      }, { passive: true });
+
+      tapBtn.addEventListener('touchend', () => {
+        if (touchStart && !touchMoved) fireClap();
+        touchStart = null;
+        suppressNextClick = true;
+        // Reset on next frame in case the synthetic click never arrives.
+        setTimeout(() => { suppressNextClick = false; }, 500);
+      }, { passive: true });
+
+      // Mouse click + keyboard activation for the div-as-button.
+      tapBtn.addEventListener('click', () => {
+        if (suppressNextClick) {
+          suppressNextClick = false;
+          return;
+        }
+        fireClap();
+      });
+
+      tapBtn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          fireClap();
+        }
       });
     }
 
