@@ -627,36 +627,36 @@
       },
     });
 
-    // Touch-device tap overlay → fire the state-machine trigger manually.
-    // On mobile, the canvas is pointer-events:none so vertical scroll works
-    // cleanly. The overlay absorbs taps; we forward them to the first
-    // SMITrigger we find in the state machine.
+    // Touch-device tap overlay → forward the tap to the canvas as a
+    // synthetic pointer event at the same coordinates. The .riv file owns
+    // listener regions on the artboard (the clapperboard slate and the
+    // "and ACTION!" button are separate regions), so Rive's internal
+    // pointer handler routes each tap to the correct interaction — same
+    // mechanism as native clicks on desktop. This is more robust than
+    // poking state-machine inputs, which would miss listener-driven
+    // interactions entirely.
     const tapBtn = document.querySelector('.clapper-tap');
     if (tapBtn) {
-      function fireClap() {
-        try {
-          const inputs = r.stateMachineInputs('footer with nested state machine');
-          if (!inputs) return;
-          const preferred = ['mainTrigger', 'pressed', 'click', 'tap', 'Trigger'];
-          let t = null;
-          for (const name of preferred) {
-            t = inputs.find(i => i.name === name && typeof i.fire === 'function');
-            if (t) break;
-          }
-          if (!t) t = inputs.find(i => typeof i.fire === 'function');
-          if (t) t.fire();
-        } catch (_) { /* state machine not ready yet */ }
+      const canvasEl = document.querySelector('.clapper-canvas');
+
+      function forwardTap(clientX, clientY) {
+        if (!canvasEl || typeof PointerEvent === 'undefined') return;
+        const init = {
+          clientX, clientY,
+          bubbles: true, cancelable: true,
+          pointerType: 'touch', isPrimary: true,
+          pointerId: 1, button: 0, buttons: 0,
+        };
+        canvasEl.dispatchEvent(new PointerEvent('pointerdown', init));
+        canvasEl.dispatchEvent(new PointerEvent('pointerup', init));
       }
 
-      // Track touch start to distinguish a tap from a vertical swipe. If the
-      // finger moves more than TAP_SLOP pixels before lift, it's a scroll —
-      // don't fire. This is a belt-and-braces guard on top of touch-action.
+      // Track touch start to distinguish a tap from a vertical swipe. If
+      // the finger moves more than TAP_SLOP pixels before lift, treat as
+      // a scroll and don't forward. Belt-and-braces on top of touch-action.
       const TAP_SLOP = 10;
       let touchStart = null;
       let touchMoved = false;
-      // After a touchend, the browser synthesizes a click. Swallow it so we
-      // don't double-fire on top of the touchend path.
-      let suppressNextClick = false;
 
       tapBtn.addEventListener('touchstart', (e) => {
         const t = e.touches[0];
@@ -673,28 +673,23 @@
         }
       }, { passive: true });
 
-      tapBtn.addEventListener('touchend', () => {
-        if (touchStart && !touchMoved) fireClap();
+      tapBtn.addEventListener('touchend', (e) => {
+        if (touchStart && !touchMoved) {
+          const t = (e.changedTouches && e.changedTouches[0]) || null;
+          forwardTap(t ? t.clientX : touchStart.x, t ? t.clientY : touchStart.y);
+        }
         touchStart = null;
-        suppressNextClick = true;
-        // Reset on next frame in case the synthetic click never arrives.
-        setTimeout(() => { suppressNextClick = false; }, 500);
       }, { passive: true });
 
-      // Mouse click + keyboard activation for the div-as-button.
-      tapBtn.addEventListener('click', () => {
-        if (suppressNextClick) {
-          suppressNextClick = false;
-          return;
-        }
-        fireClap();
-      });
-
+      // Keyboard activation: forward to the canvas center so Enter/Space
+      // hits the main clapperboard region (a11y nicety; the action button
+      // remains tap/click-only).
       tapBtn.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          fireClap();
-        }
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        if (!canvasEl) return;
+        const rect = canvasEl.getBoundingClientRect();
+        forwardTap(rect.left + rect.width / 2, rect.top + rect.height / 2);
       });
     }
 
