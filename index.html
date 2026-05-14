@@ -191,6 +191,27 @@
        pointer listeners are attached to the canvas. */
     touch-action: pan-y pinch-zoom;
   }
+  /* Tap overlay — only used on touch devices. On desktop the canvas keeps
+     its own pointer events so Rive's hover/press listeners run normally.
+     On touch, the canvas is pointer-events:none and this button absorbs
+     taps, letting the browser scroll freely while still firing the clap. */
+  .clapper-tap {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    touch-action: pan-y pinch-zoom;
+    -webkit-tap-highlight-color: transparent;
+  }
+  @media (hover: none) and (pointer: coarse) {
+    .clapper-canvas { pointer-events: none; }
+    .clapper-tap { display: block; }
+  }
   @media (min-width: 1280px) {
     .clapper-wrap { max-width: 488px; }
   }
@@ -488,6 +509,7 @@
       <div class="clapper-wrap">
         <canvas class="clapper-canvas" role="img"
                 aria-label="Moonlight clapperboard — Join us as a Producer today, and ACTION"></canvas>
+        <button type="button" class="clapper-tap" aria-label="Play clapperboard animation"></button>
       </div>
     </div>
 
@@ -602,6 +624,28 @@
         r.resizeDrawingSurfaceToCanvas();
       },
     });
+
+    // Touch-device tap overlay → fire the state-machine trigger manually.
+    // On mobile, the canvas is pointer-events:none so vertical scroll works
+    // cleanly. The overlay button absorbs taps; we forward them to the
+    // first SMITrigger we find in the state machine.
+    const tapBtn = document.querySelector('.clapper-tap');
+    if (tapBtn) {
+      tapBtn.addEventListener('click', () => {
+        try {
+          const inputs = r.stateMachineInputs('footer with nested state machine');
+          if (!inputs) return;
+          const preferred = ['mainTrigger', 'pressed', 'click', 'tap', 'Trigger'];
+          let t = null;
+          for (const name of preferred) {
+            t = inputs.find(i => i.name === name && typeof i.fire === 'function');
+            if (t) break;
+          }
+          if (!t) t = inputs.find(i => typeof i.fire === 'function');
+          if (t) t.fire();
+        } catch (_) { /* state machine not ready yet */ }
+      });
+    }
 
     // Keep the drawing buffer in sync when the viewport changes
     let resizeTimer;
